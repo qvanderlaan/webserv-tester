@@ -11,7 +11,7 @@ CPP_FLAGS		=	-Wall -Werror -Wextra -std=c++23
 
 # ========= Register Files ========= #
 
-SOURCE_CPPFILES	=	main.cpp 
+SOURCE_CPPFILES	=	main.cpp TestRunner.cpp
 
 CPPFILES		=	$(SOURCE_CPPFILES)
 
