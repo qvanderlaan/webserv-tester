@@ -1,0 +1,9 @@
+services:
+  make:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    volumes:
+      - .:/app
+    working_dir: /app
+    entrypoint: [ "make", "CPP=clang++", "CPP_FLAGS=-Wall -Werror -Wextra -std=c++23 -stdlib=libc++ -Wno-implicit-fallthrough", "LDFLAGS=-stdlib=libc++ -static-libstdc++" ]
