@@ -11,7 +11,8 @@ CPP_FLAGS		=	-Wall -Werror -Wextra -std=c++23
 
 # ========= Register Files ========= #
 
-SOURCE_CPPFILES	=	main.cpp TestRunner.cpp
+SOURCE_CPPFILES	=	HttpClient.cpp HttpResponse.cpp main.cpp ServerInstance.cpp TestException.cpp TestRegistry.cpp TestRunner.cpp \
+					tests/return_200_for_root_request/main.cpp
 
 CPPFILES		=	$(SOURCE_CPPFILES)
 
