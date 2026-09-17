@@ -24,4 +24,6 @@ class Sandbox
 		[[nodiscard]] const fs::path& getPath(void) const noexcept;
 		void writeFile(const std::string& relativePath, const std::string& content);
 		void writeConfig(const std::string& content, const std::string& filename = "webserv.conf");
+
+		void setIsTemp(const bool value);
 };

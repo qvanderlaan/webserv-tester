@@ -62,3 +62,8 @@ void Sandbox::writeConfig(const std::string& content, const std::string& filenam
 {
 	writeFile(filename, content);
 }
+
+void Sandbox::setIsTemp(const bool value)
+{
+	this->_isTemp = value;
+}
