@@ -11,13 +11,8 @@ CPP_FLAGS		=	-Wall -Werror -Wextra -std=c++23
 
 # ========= Register Files ========= #
 
-SOURCE_CPPFILES	=	HttpClient.cpp HttpResponse.cpp main.cpp ServerInstance.cpp TestException.cpp TestRegistry.cpp TestRunner.cpp \
-					tests/return_200_for_root_request/main.cpp
-
-CPPFILES		=	$(SOURCE_CPPFILES)
-
-SRC_FILES		=	$(addprefix $(SRC_DIR), $(CPPFILES))
-OBJ_FILES		=	$(addprefix $(OBJ_DIR), $(CPPFILES:.cpp=.o))
+SRC_FILES		=	$(shell find $(SRC_DIR) -name "*.cpp")
+OBJ_FILES		=	$(patsubst $(SRC_DIR)%.cpp, $(OBJ_DIR)%.o, $(SRC_FILES))
 
 # ========= Register Functions ========= #
 
