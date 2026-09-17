@@ -1,15 +1,15 @@
 #pragma once
 
-#include <filesystem>
+#include "TestContext.hpp"
 #include <string>
-
-namespace fs = std::filesystem;
 
 class TestRunner
 {
 	private:
-		fs::path _absoluteWebservLocation;
+		TestContext _ctx;
+		std::string _filter;
 
 	public:
-		TestRunner(const char* webservLocation);
+		TestRunner(std::filesystem::path webservBin, std::string filter = "");
+		int run(void);
 };

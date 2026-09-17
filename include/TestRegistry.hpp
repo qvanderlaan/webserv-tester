@@ -1,26 +1,36 @@
 #pragma once
 
-#include "ITestCase.hpp"
-#include <memory>
+#include "TestCase.hpp"
 #include <vector>
 
 class TestRegistry
 {
 	private:
-		std::vector<std::unique_ptr<ITestCase>> _tests;
+		std::vector<TestCase> _tests;
 		TestRegistry(void) = default;
 
 	public:
 		static TestRegistry& instance(void);
-		void registerTest(std::unique_ptr<ITestCase> test);
-		const std::vector<std::unique_ptr<ITestCase>>& getTests(void) const;
+		void addTest(std::string name, std::function<void(TestContext&)> fn);
+		[[nodiscard]] const std::vector<TestCase>& getTests(void) const;
 };
 
-#define REGISTER_TEST(TestClass)                                                                                       \
-	static struct AutoReg_##TestClass                                                                                  \
+#define TEST_CONCAT_IMPL(a, b) a##b
+#define TEST_CONCAT(a, b) TEST_CONCAT_IMPL(a, b)
+
+#define TEST_CASE_IMPL(name, id)                                                                                       \
+	static void TEST_CONCAT(test_fn_, id)(TestContext & ctx);                                                          \
+	namespace                                                                                                          \
 	{                                                                                                                  \
-			AutoReg_##TestClass(void)                                                                                  \
+	struct TEST_CONCAT(AutoReg_, id)                                                                                   \
+	{                                                                                                                  \
+			TEST_CONCAT(AutoReg_, id)()                                                                                \
 			{                                                                                                          \
-				TestRegistry::instance().registerTest(std::make_unique<TestClass>());                                  \
+				TestRegistry::instance().addTest(name, &TEST_CONCAT(test_fn_, id));                                    \
 			}                                                                                                          \
-	} global_AutoReg_##TestClass;
+	};                                                                                                                 \
+	[[maybe_unused]] static const TEST_CONCAT(AutoReg_, id) TEST_CONCAT(autoreg_, id);                                 \
+	}                                                                                                                  \
+	static void TEST_CONCAT(test_fn_, id)(TestContext & ctx)
+
+#define TEST_CASE(name) TEST_CASE_IMPL(name, __COUNTER__)

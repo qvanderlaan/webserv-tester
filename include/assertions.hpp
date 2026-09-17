@@ -1,6 +1,7 @@
 #pragma once
 
 #include "TestException.hpp"
+#include <sstream>
 
 #define TEST_ASSERT(cond)                                                                                              \
 	do                                                                                                                 \

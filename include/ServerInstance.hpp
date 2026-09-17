@@ -1,29 +1,37 @@
 #pragma once
 
-#include <fcntl.h>
+#include "HttpClient.hpp"
+#include "Sandbox.hpp"
 #include <filesystem>
-#include <iostream>
-#include <signal.h>
 #include <string>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <thread>
-#include <unistd.h>
-
-namespace fs = std::filesystem;
 
 class ServerInstance
 {
 	private:
 		fs::path _webservBin;
-		fs::path _workingDir;
+		Sandbox _sandbox;
 		std::string _configFile;
+		int _port;
 		pid_t _pid = -1;
+		fs::path _logFile;
+
+		static int findAvailablePort(void);
 
 	public:
-		ServerInstance(fs::path webservBin, fs::path workingDir, std::string configFile = "main.conf");
+		ServerInstance(fs::path webservBin, Sandbox sandbox, std::string configFile = "webserv.conf", int port = -1);
 		~ServerInstance(void);
 
-		bool start(void);
+		ServerInstance(const ServerInstance&) = delete;
+		ServerInstance& operator=(const ServerInstance&) = delete;
+
+		ServerInstance(ServerInstance&& other) noexcept;
+		ServerInstance& operator=(ServerInstance&& other) noexcept;
+
+		void start(void);
 		void stop(void);
+
+		[[nodiscard]] int getPort(void) const noexcept;
+		[[nodiscard]] Sandbox& sandbox(void) noexcept;
+		[[nodiscard]] HttpClient client(void) const;
+		[[nodiscard]] std::string getLogs(void) const;
 };
