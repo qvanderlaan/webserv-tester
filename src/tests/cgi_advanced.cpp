@@ -55,8 +55,6 @@ TEST_CASE("CGI infinite loop times out (504/500) and does not hang the server")
 						 "while True:\n"
 						 "    time.sleep(1)\n";
 
-	server.sandbox().setIsTemp(false);
-
 	server.sandbox().writeFile("cgi-bin/infinite.py", script);
 	chmod((server.sandbox().getPath() / "cgi-bin/infinite.py").c_str(), 0755);
 	server.start();
@@ -65,8 +63,6 @@ TEST_CASE("CGI infinite loop times out (504/500) and does not hang the server")
 	TEST_ASSERT(client.waitForServer());
 
 	HttpResponse res = client.get("/cgi-bin/infinite.py");
-
-	std::cout << std::endl << std::endl << res.statusCode << " " << res.statusText << std::endl;
 
 	// Should terminate with Gateway Timeout or Internal Error
 	TEST_ASSERT(res.statusCode == 504 || res.statusCode == 500 || res.statusCode == 502);
