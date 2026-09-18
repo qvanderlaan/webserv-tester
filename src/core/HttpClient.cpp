@@ -44,7 +44,7 @@ HttpResponse HttpClient::sendRaw(const std::string& rawPayload)
 	if (sock < 0)
 		throw std::runtime_error("Failed to create client socket");
 
-	struct timeval tv{.tv_sec = 2, .tv_usec = 0};
+	struct timeval tv{.tv_sec = 10, .tv_usec = 0};
 	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 	setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 
