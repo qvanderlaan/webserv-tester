@@ -73,7 +73,7 @@ TEST_CASE("HEAD method returns Content-Length without body and preserves Keep-Al
 	HttpResponse headParsed = HttpResponse::parse(rawHeadRes);
 	TEST_ASSERT_EQ(headParsed.statusCode, 200);
 	TEST_ASSERT_EQ(headParsed.getHeaders("Content-Length"), std::to_string(content.size()));
-	TEST_ASSERT_EQ((int)headParsed.body.size(), 0); // Strictly no body bytes!
+	TEST_ASSERT_EQ(headParsed.body.size(), (size_t)0); // Strictly no body bytes!
 
 	// Second request on same connection
 	std::string req2 =
