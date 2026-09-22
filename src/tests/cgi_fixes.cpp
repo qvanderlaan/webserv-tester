@@ -5,6 +5,7 @@
 #include <chrono>
 #include <format>
 #include <future>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <thread>
@@ -162,4 +163,90 @@ TEST_CASE("GET request to CGI script reading stdin gets EOF immediately")
 	TEST_ASSERT_EQ(res.statusCode, 200);
 	TEST_ASSERT_CONTAINS(res.body, "READ_BYTES:0");
 	TEST_ASSERT(durationMs < 1500);
+}
+
+#include <netinet/tcp.h>
+
+TEST_CASE("Spamming client data during CGI execution does not cause infinite loop (DoS)")
+{
+	ServerInstance server = ctx.spawnServer(R"(
+		server {
+			listen 127.0.0.1:{PORT};
+			location /cgi-bin {
+				methods GET;
+				root ./;
+				cgi .py /usr/bin/python3;
+			}
+			location / {
+				methods GET;
+				root ./;
+			}
+		}
+	)");
+
+	std::string script = "#!/usr/bin/env python3\n"
+						 "import time\n"
+						 "time.sleep(0.2)\n"
+						 "print('Content-Type: text/plain\\r\\n\\r\\nCGI_DONE', end='')\n";
+
+	server.sandbox().writeFile("cgi-bin/sleepy_dos.py", script);
+	server.sandbox().writeFile("alive.txt", "SERVER_IS_ALIVE");
+	chmod((server.sandbox().getPath() / "cgi-bin/sleepy_dos.py").c_str(), 0755);
+	server.start();
+
+	int sock = socket(AF_INET, SOCK_STREAM, 0);
+	TEST_ASSERT(sock >= 0);
+
+	// Disable Nagle's algorithm to force immediate packet delivery
+	int flag = 1;
+	setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
+
+	sockaddr_in addr{};
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(server.getPort());
+	inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
+	TEST_ASSERT(connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0);
+
+	// 1. Send the full legitimate request
+	std::string req =
+		std::format("GET /cgi-bin/sleepy_dos.py HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: keep-alive\r\n\r\n",
+					server.getPort());
+	ssize_t sent = ::send(sock, req.data(), req.size(), 0);
+	TEST_ASSERT(sent == static_cast<ssize_t>(req.size()));
+
+	// 2. Spam 1 byte every 1 millisecond for 50 milliseconds.
+	for (int i = 0; i < 50; ++i)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		char c = 'X';
+		if (::send(sock, &c, 1, 0) < 0)
+			break;
+	}
+
+	// 3. Set a timeout just in case it actually freezes
+	struct timeval tv{.tv_sec = 2, .tv_usec = 0};
+	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+	std::string response;
+	char buf[4096];
+	while (true)
+	{
+		ssize_t n = recv(sock, buf, sizeof(buf), 0);
+		if (n <= 0)
+			break;
+		response.append(buf, n);
+
+		// FAST EXIT: don't wait for the 2-second timeout to close the keep-alive socket!
+		if (response.find("CGI_DONE") != std::string::npos)
+			break;
+	}
+	close(sock);
+
+	TEST_ASSERT_CONTAINS(response, "CGI_DONE");
+
+	// 4. Double-check that the server isn't frozen using a FAST static file request
+	HttpClient client = server.client();
+	HttpResponse res = client.get("/alive.txt");
+	TEST_ASSERT_EQ(res.statusCode, 200);
+	TEST_ASSERT_CONTAINS(res.body, "SERVER_IS_ALIVE");
 }
