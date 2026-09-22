@@ -3,6 +3,8 @@
 #include "assertions.hpp"
 #include <filesystem>
 #include <format>
+#include <iostream>
+#include <sys/stat.h>
 
 TEST_CASE("xcessively long URI does not crash server with filesystem exception")
 {
@@ -182,4 +184,50 @@ TEST_CASE("Duplicate Host headers in a single request return 400 (RFC 9112 §7.1
 
 	HttpResponse res = client.sendRaw(rawReq);
 	TEST_ASSERT_EQ(res.statusCode, 400);
+}
+
+TEST_CASE("Path traversal via CGI path (/cgi-bin/../../) returns 403 Forbidden and blocks execution")
+{
+	ServerInstance server = ctx.spawnServer(R"(
+		server {
+			listen 127.0.0.1:{PORT};
+			location /cgi-bin {
+				methods GET POST;
+				root ./site;
+				cgi .sh /bin/sh;
+				cgi .py /usr/bin/python3;
+			}
+			location / {
+				methods GET;
+				root ./site;
+			}
+		}
+	)");
+
+	std::string maliciousScript = "#!/bin/sh\n"
+								  "printf 'Content-Type: text/plain\\r\\n\\r\\n'\n"
+								  "printf 'BADDD!\\n'\n";
+
+	// 1. Place pwd.sh OUTSIDE ./site (in sandbox root)
+	server.sandbox().writeFile("pwd.sh", maliciousScript);
+	chmod((server.sandbox().getPath() / "pwd.sh").c_str(), 0755);
+
+	// 2. Ensure ./site/cgi-bin exists so the path is structurally valid
+	server.sandbox().writeFile("site/cgi-bin/.gitkeep", "");
+	server.sandbox().writeFile("site/index.html", "SERVER_HEALTHY");
+	server.start();
+
+	HttpClient client = server.client();
+	TEST_ASSERT(client.waitForServer());
+
+	// Simulates: curl --path-as-is localhost:{PORT}/cgi-bin/../../pwd.sh
+	HttpResponse res = client.get("/cgi-bin/../../pwd.sh");
+
+	TEST_ASSERT_EQ(res.statusCode, 403);
+	TEST_ASSERT(res.body.find("BADDD!") == std::string::npos);
+
+	// Ensure server is still alive and serving normal requests
+	HttpResponse healthyRes = client.get("/index.html");
+	TEST_ASSERT_EQ(healthyRes.statusCode, 200);
+	TEST_ASSERT_CONTAINS(healthyRes.body, "SERVER_HEALTHY");
 }
