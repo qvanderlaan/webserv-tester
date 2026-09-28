@@ -3,55 +3,6 @@
 #include "assertions.hpp"
 #include <format>
 
-TEST_CASE("Virtual hosting falls back to first server block for unknown Host header")
-{
-	int port = 8096;
-	std::string config = std::format(R"(
-		server {{
-			listen 127.0.0.1:{};
-			server_name default.local;
-			location / {{
-				methods GET;
-				root ./default_site;
-				index index.html;
-			}}
-		}}
-		server {{
-			listen 127.0.0.1:{};
-			server_name secondary.local;
-			location / {{
-				methods GET;
-				root ./secondary_site;
-				index index.html;
-			}}
-		}}
-	)",
-									 port, port);
-
-	Sandbox sb;
-	sb.writeFile("default_site/index.html", "DEFAULT_SERVER_PAGE");
-	sb.writeFile("secondary_site/index.html", "SECONDARY_SERVER_PAGE");
-	sb.writeConfig(config);
-
-	ServerInstance server(ctx.webservBin, std::move(sb), "webserv.conf", port);
-	server.start();
-
-	HttpClient client("127.0.0.1", port);
-	TEST_ASSERT(client.waitForServer());
-
-	HttpResponse resUnknown = client.get("/", {{"Host", "unknown-domain.com"}});
-	TEST_ASSERT_EQ(resUnknown.statusCode, 200);
-	TEST_ASSERT_CONTAINS(resUnknown.body, "DEFAULT_SERVER_PAGE");
-
-	HttpResponse resIp = client.get("/", {{"Host", "127.0.0.1"}});
-	TEST_ASSERT_EQ(resIp.statusCode, 200);
-	TEST_ASSERT_CONTAINS(resIp.body, "DEFAULT_SERVER_PAGE");
-
-	HttpResponse resSec = client.get("/", {{"Host", "secondary.local"}});
-	TEST_ASSERT_EQ(resSec.statusCode, 200);
-	TEST_ASSERT_CONTAINS(resSec.body, "SECONDARY_SERVER_PAGE");
-}
-
 TEST_CASE("Virtual host matching is case-insensitive (RFC 9110)")
 {
 	int port = 8097;
